@@ -7,6 +7,7 @@ from django_countries.fields import Country
 from django_prices_vatlayer.utils import get_tax_rate_types
 from prices import Money, MoneyRange, TaxedMoney, TaxedMoneyRange
 
+from ....checkout import calculations
 from ....core.taxes import TaxType
 from ....graphql.core.utils.error_codes import ExtensionsErrorCode
 from ...base_plugin import BasePlugin
@@ -19,9 +20,10 @@ from . import (
 )
 
 if TYPE_CHECKING:
-
+    # flake8: noqa
     from ....checkout.models import Checkout, CheckoutLine
-    from ....product.models import Product
+    from ....discount import DiscountInfo
+    from ....product.models import Product, ProductType
     from ....account.models import Address
     from ....order.models import OrderLine, Order
     from ...models import PluginConfiguration
@@ -72,12 +74,9 @@ class VatlayerPlugin(BasePlugin):
         if self._skip_plugin(previous_value):
             return previous_value
 
-        zero_total = Money(0, currency=previous_value.currency)
-        taxed_zero = TaxedMoney(zero_total, zero_total)
-
         return (
-            self.calculate_checkout_subtotal(checkout, discounts, previous_value)
-            + self.calculate_checkout_shipping(checkout, discounts, taxed_zero)
+            calculations.checkout_subtotal(checkout, discounts)
+            + calculations.checkout_shipping_price(checkout, discounts)
             - checkout.discount
         )
 
@@ -166,6 +165,8 @@ class VatlayerPlugin(BasePlugin):
         address = order_line.order.shipping_address or order_line.order.billing_address
         country = address.country if address else None
         variant = order_line.variant
+        if not variant:
+            return previous_value
         return self.__apply_taxes_to_product(
             variant.product, order_line.unit_price, country
         )
@@ -186,13 +187,6 @@ class VatlayerPlugin(BasePlugin):
         return sorted(choices, key=lambda x: x.code)
 
     def show_taxes_on_storefront(self, previous_value: bool) -> bool:
-        self._initialize_plugin_configuration()
-
-        if not self.active:
-            return previous_value
-        return True
-
-    def taxes_are_enabled(self, previous_value: bool) -> bool:
         self._initialize_plugin_configuration()
 
         if not self.active:
@@ -306,7 +300,7 @@ class VatlayerPlugin(BasePlugin):
         if not settings.VATLAYER_ACCESS_KEY and plugin_configuration.active:
             raise ValidationError(
                 "Cannot be enabled without provided 'settings.VATLAYER_ACCESS_KEY'",
-                code=ExtensionsErrorCode.PLUGIN_MISCONFIGURED,
+                code=ExtensionsErrorCode.PLUGIN_MISCONFIGURED.value,
             )
 
     @classmethod

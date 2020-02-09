@@ -13,6 +13,7 @@ from saleor.product.models import Product, ProductType
 if TYPE_CHECKING:
     # flake8: noqa
     from saleor.product.models import Product, ProductType
+    from django.db.models import QuerySet
 
 
 class PluginSample(BasePlugin):
@@ -85,9 +86,6 @@ class PluginSample(BasePlugin):
     def show_taxes_on_storefront(self, previous_value: bool) -> bool:
         return True
 
-    def taxes_are_enabled(self, previous_value: bool) -> bool:
-        return True
-
     def apply_taxes_to_product(self, product, price, country, previous_value, **kwargs):
         price = Money("1.0", price.currency)
         return TaxedMoney(price, price)
@@ -121,10 +119,14 @@ class ActivePlugin(BasePlugin):
     PLUGIN_NAME = "Plugin1"
 
     @classmethod
-    def get_plugin_configuration(cls, queryset) -> "PluginConfiguration":
-        qs = queryset.filter(name="Active")
-        if qs.exists():
-            return qs[0]
+    def get_plugin_configuration(
+        cls, queryset: "QuerySet" = None
+    ) -> "PluginConfiguration":
+        if queryset:
+            configuration = queryset.filter(name="Active").first()
+            if configuration:
+                return configuration
+
         defaults = {
             "name": "Active",
             "description": "Not working",

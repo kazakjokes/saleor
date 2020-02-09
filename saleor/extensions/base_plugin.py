@@ -150,14 +150,6 @@ class BasePlugin:
         """
         return NotImplemented
 
-    def taxes_are_enabled(self, previous_value: bool) -> bool:
-        """Define if checkout should add info about included taxes.
-
-        It is used only by the old storefront. It adds a tax section to the checkout
-        view.
-        """
-        return NotImplemented
-
     def apply_taxes_to_shipping_price_range(
         self, prices: MoneyRange, country: Country, previous_value: TaxedMoneyRange
     ) -> TaxedMoneyRange:
@@ -307,13 +299,7 @@ class BasePlugin:
     ) -> List["CustomerSource"]:
         return NotImplemented
 
-    def create_form(self, data, payment_information, previous_value):
-        return NotImplemented
-
     def get_client_token(self, token_config, previous_value):
-        return NotImplemented
-
-    def get_payment_template(self, previous_value):
         return NotImplemented
 
     def get_payment_config(self, previous_value):
@@ -323,7 +309,7 @@ class BasePlugin:
     def _update_config_items(
         cls, configuration_to_update: List[dict], current_config: List[dict]
     ):
-        config_structure = (
+        config_structure: dict = (
             cls.CONFIG_STRUCTURE if cls.CONFIG_STRUCTURE is not None else {}
         )
         for config_item in current_config:
@@ -332,8 +318,10 @@ class BasePlugin:
                 if config_item["name"] == config_item_name:
                     new_value = config_item_to_update.get("value")
                     item_type = config_structure.get(config_item_name, {}).get("type")
-                    if item_type == ConfigurationTypeField.BOOLEAN and not isinstance(
-                        new_value, bool
+                    if (
+                        item_type == ConfigurationTypeField.BOOLEAN
+                        and new_value
+                        and not isinstance(new_value, bool)
                     ):
                         new_value = new_value.lower() == "true"
                     config_item.update([("value", new_value)])

@@ -24,7 +24,6 @@ install:
     if [ -n "$DJANGO" ]; then
       nvm install 10 \
         && npm i \
-        && npm run build-assets --production \
         && npm run build-emails
     fi
 
@@ -47,6 +46,8 @@ matrix:
     - env: TOXENV=black
       python: "3.8"
     - env: TOXENV=flake8
+      python: "3.8"
+    - env: TOXENV=mypy
       python: "3.8"
     - env: TOXENV=check_gql_schema
       python: "3.8"
